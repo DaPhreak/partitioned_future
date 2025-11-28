@@ -9,39 +9,55 @@ namespace {
 
 TEST_CASE("Test for each", "[partitioned_future]")
 {
-    std::vector<std::string> stringVector{ std::thread::hardware_concurrency() * 2 + 3 };
-
-    partitioned_future::async_for_each(
-        stringVector.begin(),
-        stringVector.end(),
-        [&]( auto&& s )
+    constexpr auto make_function{ []( const std::string* begin )
+    {
+        return [ begin ]( std::string& s )
         {
-            s = std::to_string( std::distance( stringVector.data(), &s ) );
-        } );
-    for ( size_t i{}; i < stringVector.size(); ++i ) {
-        REQUIRE( stringVector[i] ==  std::to_string( i ) );
-    }
+            s = std::to_string( &s - begin );
+        };
+    }};
+    std::vector<std::string> stringVector1{ std::thread::hardware_concurrency() * 2 + 3 };
+
+    std::for_each(
+        stringVector1.begin(),
+        stringVector1.end(),
+        make_function( stringVector1.data() )
+    );
+    std::vector<std::string> stringVector2( stringVector1.size() );
+
+    partitioned_future::for_each(
+        stringVector2.begin(),
+        stringVector2.end(),
+        make_function( stringVector2.data() )
+    );
+
+    REQUIRE( stringVector1 ==  stringVector2 );
 }
 
 TEST_CASE("Test transform", "[partitioned_future]")
 {
+    constexpr auto function{ []( const size_t i ) { return std::to_string( i ); } };
     std::vector<size_t> intVector( std::thread::hardware_concurrency() * 2 + 3 );
-    std::vector<std::string> stringVector( intVector.size() );
-
+ 
     std::iota( intVector.begin(), intVector.end(), 0 );
+    std::vector<std::string> stringVector1( intVector.size() );
 
-    partitioned_future::async_transform(
+    std::transform(
         intVector.begin(),
         intVector.end(),
-        stringVector.begin(),
-        []( auto&& i )
-        {
-            return std::to_string( i );
-        } );
+        stringVector1.begin(),
+        function
+    );
+    std::vector<std::string> stringVector2( intVector.size() );
 
-    for ( size_t i{}; i < stringVector.size(); ++i ) {
-        REQUIRE( stringVector[i] ==  std::to_string( i ) );
-    }
+    partitioned_future::transform(
+        intVector.begin(),
+        intVector.end(),
+        stringVector2.begin(),
+        function
+    );
+
+    REQUIRE( stringVector1 ==  stringVector2 );
 }
 
 } // ::

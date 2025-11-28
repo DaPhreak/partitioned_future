@@ -9,8 +9,7 @@ namespace partitioned_future {
 template < class It, class Function >
 [[nodiscard]] auto make_futures ( It it, const size_t size, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
 {
-    using ItRes        = decltype( *std::declval<It>() );
-    using FuncRes      = std::invoke_result_t<std::decay_t<Function>,ItRes>;
+    using FuncRes      = std::invoke_result_t<std::decay_t<Function>,size_t,std::add_const_t<It>&>;
     using FutureResult = std::conditional_t<std::is_void_v<FuncRes>,void,std::vector<FuncRes>>;
     using Result       = std::vector<std::future<FutureResult>>;
     Result res;
@@ -20,27 +19,30 @@ template < class It, class Function >
         size_t       rest{ size % taskNr };
 
         res.reserve( taskNr );
-        for ( size_t i{}; i < taskNr; ++i ) {
+        for ( size_t i{}, offset{}; i < taskNr; ++i ) {
             const size_t dist{ loopdist + ( rest ? 1 : 0) };
 
-            res.emplace_back( std::async( std::launch::deferred | ( i ? std::launch::async : std::launch::deferred ),
-            [ it, dist, &function ]() mutable
-            {
-                if constexpr ( !std::is_void_v<FuncRes> ) {
-                    FutureResult res;
+            res.emplace_back( std::async(
+                std::launch::deferred | ( i ? std::launch::async : std::launch::deferred ),
+                [ it, offset, dist, function = ( i + 1 == taskNr ? std::forward<Function>( function ) : function ) ]() mutable
+                {
+                    if constexpr ( !std::is_void_v<FuncRes> ) {
+                        FutureResult res;
 
-                    res.reserve( dist );
-                    for ( size_t i{}; i < dist; ++i, ++it ) {
-                        res.emplace_back( function( *it ) );
-                    }
-                    return res;
-                } else {
-                    for ( size_t i{}; i < dist; ++i, ++it ) {
-                        function( *it );
+                        res.reserve( dist );
+                        for ( size_t i{}; i < dist; ++i, ++it ) {
+                            res.emplace_back( function( offset + i , std::as_const( it ) ) );
+                        }
+                        return res;
+                    } else {
+                        for ( size_t i{}; i < dist; ++i, ++it ) {
+                            function( offset + i, std::as_const( it ) );
+                        }
                     }
                 }
-            } ) );
+            ) );
             std::advance( it, dist );
+            offset += dist;
             if ( rest ) {
                 --rest;
             }
@@ -58,13 +60,17 @@ template < class It, class Function >
 }
 
 template < class It, class Function >
-void async_for_each ( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+void for_each ( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
 {
-    auto&& futures{ make_futures( std::move( it ), std::move( end ),
-    [&function]( auto&& v )
-    {
-        function( std::forward<decltype(v)>(v) );
-    }, taskCount ) };
+    auto&& futures{ make_futures(
+        std::move( it ),
+        std::move( end ),
+        [ &function ]( const size_t, const It& it )
+        {
+            function( *it );
+        },
+        taskCount )
+    };
 
     for ( auto& future: futures ) {
        future.get();
@@ -72,17 +78,21 @@ void async_for_each ( It it, It end, Function&& function, const size_t taskCount
 }
 
 template < class It, class OutputIt, class Function >
-OutputIt async_transform ( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+void transform ( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
 {
-    auto&& futures{ make_futures( std::move( it ), std::move( end ), std::forward<Function>( function ), taskCount ) };
+    auto&& futures{ make_futures(
+        std::move( it ),
+        std::move( end ),
+        [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
+        {
+            *std::next( dest, id ) = function( *it );
+        },
+        taskCount )
+    };
 
     for ( auto& future: futures ) {
-        for ( auto& v: future.get() ) {
-            *dest = std::move( v );
-            ++dest;
-        }
+       future.get();
     }
-    return std::move( dest );
 }
 
 } // namespace partitioned_future
