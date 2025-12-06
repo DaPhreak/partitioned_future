@@ -7,10 +7,31 @@
 namespace partitioned_future {
 
 template < class It, class Function >
-[[nodiscard]] auto make_futures ( It it, const size_t size, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] auto make_futures( It it, const size_t size, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() );
+
+template < class It, class Function >
+[[nodiscard]] auto make_futures( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
 {
-    using FuncRes      = std::invoke_result_t<std::decay_t<Function>,size_t,std::add_const_t<It>&>;
-    using FutureResult = std::conditional_t<std::is_void_v<FuncRes>,void,std::vector<FuncRes>>;
+    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
+
+    return make_futures( std::move( it ), size, std::forward<Function>( function ), taskCount );
+}
+
+template < class It, class Function >
+decltype(auto) __invoke_it( Function&& function, const size_t id, It&& it )
+{
+    if constexpr ( std::is_invocable_v<std::decay_t<Function>,size_t,It> ) {
+        return function( id, std::forward< It >( it ) );
+    } else {
+        return function( std::forward< It >( it ) );
+    }
+}
+
+template < class It, class Function >
+[[nodiscard]] auto make_futures ( It it, const size_t size, Function&& function, const size_t taskCount )
+{
+    using FuncRes      = decltype(__invoke_it( function, size_t{}, it ));
+    using FutureResult = std::conditional_t<std::is_void_v<FuncRes>,void,std::vector<std::decay_t<FuncRes>>>;
     using Result       = std::vector<std::future<FutureResult>>;
     Result res;
 
@@ -31,12 +52,12 @@ template < class It, class Function >
 
                         res.reserve( dist );
                         for ( size_t i{}; i < dist; ++i, ++it ) {
-                            res.emplace_back( function( offset + i , std::as_const( it ) ) );
+                            res.emplace_back( __invoke_it( function, offset + i , std::as_const( it ) ) );
                         }
                         return res;
                     } else {
                         for ( size_t i{}; i < dist; ++i, ++it ) {
-                            function( offset + i, std::as_const( it ) );
+                            __invoke_it( function, offset + i, std::as_const( it ) );
                         }
                     }
                 }
@@ -49,50 +70,6 @@ template < class It, class Function >
         }
     }
     return res;
-}
-
-template < class It, class Function >
-[[nodiscard]] auto make_futures ( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
-{
-    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
-
-    return make_futures( std::move( it ), size, std::forward<Function>( function ), taskCount );
-}
-
-template < class It, class Function >
-void for_each ( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
-{
-    auto&& futures{ make_futures(
-        std::move( it ),
-        std::move( end ),
-        [ &function ]( const size_t, const It& it )
-        {
-            function( *it );
-        },
-        taskCount )
-    };
-
-    for ( auto& future: futures ) {
-       future.get();
-    }
-}
-
-template < class It, class OutputIt, class Function >
-void transform ( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
-{
-    auto&& futures{ make_futures(
-        std::move( it ),
-        std::move( end ),
-        [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
-        {
-            *std::next( dest, id ) = function( *it );
-        },
-        taskCount )
-    };
-
-    for ( auto& future: futures ) {
-       future.get();
-    }
 }
 
 } // namespace partitioned_future

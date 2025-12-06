@@ -1,9 +1,11 @@
+#include "partitioned_future/algorithm.h"
 #include "partitioned_future/partitioned_future.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
 #include <numeric>
+#include <algorithm>
 
 namespace {
 
@@ -31,7 +33,7 @@ TEST_CASE("Test for each", "[partitioned_future]")
         make_function( stringVector2.data() )
     );
 
-    REQUIRE( stringVector1 ==  stringVector2 );
+    REQUIRE( stringVector1 == stringVector2 );
 }
 
 TEST_CASE("Test transform", "[partitioned_future]")
@@ -57,7 +59,42 @@ TEST_CASE("Test transform", "[partitioned_future]")
         function
     );
 
-    REQUIRE( stringVector1 ==  stringVector2 );
+    REQUIRE( stringVector1 == stringVector2 );
+
+    auto stringVector3{ partitioned_future::transform(
+        intVector.begin(),
+        intVector.end(),
+        function )
+    };
+
+    REQUIRE( stringVector1 == stringVector3 );
+
 }
+
+TEST_CASE("Test make_futures", "[partitioned_future]")
+{
+    std::vector<std::string> stringVector1( std::thread::hardware_concurrency() * 2 + 3 );
+
+    for ( size_t i{}; i < stringVector1.size(); i++ ) {
+        stringVector1[i] = std::to_string( i );
+    }
+
+    auto futures{ partitioned_future::make_futures(
+        stringVector1.begin(),
+        stringVector1.end(),
+        []( auto&& it ) -> std::string& { return *it; }
+        ) };
+    std::vector<std::string> stringVector2;
+
+    stringVector2.reserve( stringVector1.size() );
+    for ( auto&& future: futures ) {
+        for ( auto&& string: future.get() ) {
+            stringVector2.emplace_back( std::move( string ) );
+        }
+    }
+    
+    REQUIRE( stringVector1 == stringVector2 );
+}
+
 
 } // ::

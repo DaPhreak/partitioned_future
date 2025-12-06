@@ -7,7 +7,8 @@ project( partitioned_future
 )
 
 set( HEADERS 
-    include/partitioned_future/partitioned_future.h
+    include/partitioned_future/algorithm.h
+	include/partitioned_future/partitioned_future.h
 )
 
 add_library( ${PROJECT_NAME} INTERFACE
