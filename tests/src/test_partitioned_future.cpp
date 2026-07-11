@@ -10,7 +10,6 @@
 
 namespace {
 
-
 TEST_CASE("x_of", "[partitioned_future]")
 {
     const std::initializer_list list{ 1, 2, 3, 4, 5, 7, 6, 24, 16, 32 };
@@ -404,6 +403,5 @@ TEST_CASE("Test make_futures", "[partitioned_future]")
     
     REQUIRE( stringVector1 == stringVector2 );
 }
-
 
 } // ::

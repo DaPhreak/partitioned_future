@@ -160,4 +160,44 @@ _FwdIt3 transform(_ExPo&&, const _FwdIt1 _First1, const _FwdIt1 _Last1, const _F
     }
 }
 
+template <class _ExPo, class _FwdIt1, class _FwdIt2, enable_if_execution_policy_t<_ExPo> = 0>
+_FwdIt2 copy(_ExPo&&, _FwdIt1 _First, _FwdIt1 _Last, _FwdIt2 _Dest) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::copy(std::move(_First),std::move(_Last),std::move(_Dest));
+    } else {
+        return std::copy(std::move(_First),std::move(_Last),std::move(_Dest));
+    }
+}
+
+template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Pr, enable_if_execution_policy_t<_ExPo> = 0>
+_FwdIt2 copy_if(_ExPo&&, _FwdIt1 _First, _FwdIt1 _Last, _FwdIt2 _Dest, _Pr&& _Pred) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::copy_if(std::move(_First),std::move(_Last),std::move(_Dest),std::forward<_Pr>(_Pred));
+    } else {
+        return std::copy_if(std::move(_First),std::move(_Last),std::move(_Dest),std::forward<_Pr>(_Pred));
+    }
+}
+
+template <class _ExPo, class _FwdIt1, class _Diff, class _FwdIt2, enable_if_execution_policy_t<_ExPo> = 0>
+_FwdIt2 copy_n(_ExPo&&, _FwdIt1 _First, _Diff _Count_raw, _FwdIt2 _Dest) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::copy_n(std::move(_First),std::move(_Count_raw),std::move(_Dest));
+    } else {
+        return std::copy_n(std::move(_First),std::move(_Count_raw),std::move(_Dest));
+    }
+}
+
+template <class _ExPo, class _FwdIt1, class _FwdIt2, enable_if_execution_policy_t<_ExPo> = 0>
+_FwdIt2 move(_ExPo&&, _FwdIt1 _First, _FwdIt1 _Last, _FwdIt2 _Dest) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::move(std::move(_First),std::move(_Last),std::move(_Dest));
+    } else {
+        return std::move(std::move(_First),std::move(_Last),std::move(_Dest));
+    }
+}
+
 } // namespace std
