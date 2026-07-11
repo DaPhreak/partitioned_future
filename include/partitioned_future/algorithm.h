@@ -3,6 +3,7 @@
 #include "partitioned_future.h"
 
 #include <atomic>
+#include <shared_mutex>
 
 namespace partitioned_future {
 
@@ -112,7 +113,80 @@ template < class It, class T >
         [ & ]( const auto& v )
         {
             return v == value;
+        },
+        taskCount
+    );
+}
+
+template < class It, class Pred >
+[[nodiscard]] It find_if( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    if ( it == end ) {
+        return it;
+    }
+    const size_t size{ static_cast<size_t>( std::distance( it, end ) ) };
+
+    if ( size < 2 || taskCount < 2 ) {
+        for ( ; it != end; ++it ) {
+            if ( pred( *it ) ) {
+                return it;
+            }
         }
+        return end;
+    }
+    size_t result{ size };
+    std::shared_mutex mutex;
+
+    auto&& futures{ make_futures(
+        it,
+        size,
+        [ & ]( const size_t id, const It& it )
+        {
+            if ( std::shared_lock l{ mutex }; result < id ) {
+                return;
+            }
+            if ( ! pred( *it ) ) {
+                return;
+            }
+            if ( std::lock_guard l{ mutex }; id < result ) {
+                result = id;
+            }
+        },
+        taskCount )
+    };
+
+    for ( auto& future: futures ) {
+       future.get();
+    }
+    std::advance( it, result );
+    return it;
+}
+
+template < class It, class Pred >
+[[nodiscard]] It find_if_not( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    return find_if(
+        std::move( it ),
+        std::move( end ),
+        [ & ]( const auto& v )
+        {
+            return ! pred( v );
+        },
+        taskCount
+    );
+}
+
+template < class It, class T >
+[[nodiscard]] It find( It it, It end, const T& value, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    return find_if(
+        std::move( it ),
+        std::move( end ),
+        [ & ]( const auto& v )
+        {
+            return v == value;
+        },
+        taskCount
     );
 }
 
