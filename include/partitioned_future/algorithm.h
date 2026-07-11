@@ -81,6 +81,41 @@ template < class It, class Pred >
     return result.load();
 }
 
+template < class It, class Pred >
+[[nodiscard]] typename std::iterator_traits<It>::difference_type count_if( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    if ( it == end ) {
+        return {};
+    }
+    std::atomic<std::iterator_traits<It>::difference_type> result{};
+
+    for_each(
+        std::move( it ),
+        std::move( end ),
+        [ & ]( const auto& v )
+        {
+            if ( pred( v ) ) {
+                ++result;
+            }
+        },
+        taskCount
+    );
+    return result.load();
+}
+
+template < class It, class T >
+[[nodiscard]] typename std::iterator_traits<It>::difference_type count( It it, It end, const T& value, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    return count_if(
+        std::move( it ),
+        std::move( end ),
+        [ & ]( const auto& v )
+        {
+            return v == value;
+        }
+    );
+}
+
 template < class It, class Function >
 void for_each( It it, It end, Function&& function, const size_t taskCount )
 {
