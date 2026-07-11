@@ -22,15 +22,30 @@ void for_each( It it, It end, Function&& function, const size_t taskCount = std:
     }
 }
 
-template < class It, class OutputIt, class Function >
-void transform( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+template < class It, class Diff, class Function >
+It for_each_n( It it, const Diff count, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
 {
+    if ( count < 1 ) {
+        return it;
+    }
+    auto result{ std::next( it, count ) };
+
+    for_each( std::move( it ), result, std::forward<Function>( function ), taskCount );
+    return result;
+}
+
+template < class It, class OutputIt, class Function >
+OutputIt transform( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+{
+    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
+    auto result{ std::next( dest, size ) };
+
     auto&& futures{ make_futures(
         std::move( it ),
-        std::move( end ),
+        size,
         [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
         {
-            *std::next( dest, id ) = function( *it );
+            *std::next( std::move( dest ), id ) = function( *it );
         },
         taskCount )
     };
@@ -38,6 +53,7 @@ void transform( It it, It end, OutputIt dest, Function&& function, const size_t 
     for ( auto& future: futures ) {
        future.get();
     }
+    return result;
 }
 
 template < class It, class Function >
