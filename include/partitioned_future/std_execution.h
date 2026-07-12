@@ -235,7 +235,7 @@ template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Ty, enable_if_execut
 _Ty transform_reduce(_ExPo&& _Exec, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _First2, _Ty _Val) noexcept
 {
    if constexpr (remove_reference_t<_ExPo>::parallelize) {
-        return std::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val));
+        return partitioned_future::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val), partitioned_future::defaultTasks());
     } else {
         return std::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val));
     }
@@ -244,8 +244,8 @@ _Ty transform_reduce(_ExPo&& _Exec, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _Fi
 template <class _ExPo, class _FwdIt, class _Ty, class _BinOp, class _UnaryOp, enable_if_execution_policy_t<_ExPo> = 0>
 [[nodiscard]] _Ty transform_reduce(_ExPo&&, _FwdIt _First, _FwdIt _Last, _Ty _Val, _BinOp&& _Reduce_op, _UnaryOp&& _Transform_op) noexcept
 {
-   if constexpr (remove_reference_t<_ExPo>::parallelize) {
-        return std::transform_reduce(std::move(_First), std::move(_Last), std::move(_Val), std::forward<_BinOp>(_Reduce_op), std::forward<_UnaryOp>(_Transform_op));
+   if constexpr (true || remove_reference_t<_ExPo>::parallelize) {
+        return partitioned_future::transform_reduce(std::move(_First), std::move(_Last), std::move(_Val), std::forward<_BinOp>(_Reduce_op), std::forward<_UnaryOp>(_Transform_op), partitioned_future::defaultTasks());
     } else {
         return std::transform_reduce(std::move(_First), std::move(_Last), std::move(_Val), std::forward<_BinOp>(_Reduce_op), std::forward<_UnaryOp>(_Transform_op));
     }
@@ -255,7 +255,7 @@ template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Ty, class _BinOp1, c
 [[nodiscard]] _Ty transform_reduce(_ExPo&&, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _First2, _Ty _Val, _BinOp1 _Reduce_op, _BinOp2 _Transform_op) noexcept
 {
    if constexpr (remove_reference_t<_ExPo>::parallelize) {
-        return std::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val), std::forward<_BinOp1>(_Reduce_op), std::forward<_BinOp2>(_Transform_op));
+        return partitioned_future::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val), std::forward<_BinOp1>(_Reduce_op), std::forward<_BinOp2>(_Transform_op), partitioned_future::defaultTasks() );
     } else {
         return std::transform_reduce(std::move(_First1), std::move(_Last1), std::move(_First2), std::move(_Val), std::forward<_BinOp1>(_Reduce_op), std::forward<_BinOp2>(_Transform_op));
     }

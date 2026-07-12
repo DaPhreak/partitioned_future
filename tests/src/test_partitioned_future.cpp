@@ -215,7 +215,7 @@ TEST_CASE("Test count", "[partitioned_future]")
 
 TEST_CASE("find", "[partitioned_future]")
 {
-    std::vector<size_t> intVector( 10'000 );
+    std::vector<size_t> intVector( 10'001 );
  
     std::iota( intVector.begin(), intVector.end(), 0 );
 
@@ -323,7 +323,7 @@ TEST_CASE("Test for each", "[partitioned_future]")
 
 TEST_CASE("Test reduce", "[partitioned_future]")
 {
-    std::vector<size_t> intVector( 10'000 );
+    std::vector<size_t> intVector( 10'001 );
  
     std::iota( intVector.begin(), intVector.end(), 0 );
 
@@ -376,6 +376,72 @@ TEST_CASE("Test reduce", "[partitioned_future]")
             intVector.end(),
             size_t{ 22 },
             std::plus<>()
+        ) };
+
+        REQUIRE ( a == b );
+    }
+
+    {
+        const auto a{ std::transform_reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end(),
+            intVector.begin(),
+            size_t{ 22 }
+        ) };
+
+        const auto b{ std::transform_reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end(),
+            intVector.begin(),
+            size_t{ 22 }
+        ) };
+
+        REQUIRE ( a == b );
+    }
+
+    {
+        const auto a{ std::transform_reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 },
+            std::plus<>{},
+            []( auto&& v ) { return v; }
+        ) };
+
+        const auto b{ std::transform_reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 },
+            std::plus<>{},
+            []( auto&& v ) { return v; }
+        ) };
+        
+        REQUIRE ( a == b );
+    }
+
+    {
+        const auto a{ std::transform_reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end(),
+            intVector.begin(),
+            size_t{ 22 },
+            std::plus<>{},
+            std::plus<>{}
+        ) };
+
+        const auto b{ std::transform_reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end(),
+            intVector.begin(),
+            size_t{ 22 },
+            std::plus<>{},
+            std::plus<>{}
         ) };
 
         REQUIRE ( a == b );

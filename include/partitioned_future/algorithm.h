@@ -3,6 +3,7 @@
 #include "partitioned_future.h"
 
 #include <atomic>
+#include <numeric>
 #include <shared_mutex>
 
 namespace partitioned_future {
@@ -267,7 +268,7 @@ OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, 
 template < class It, class Function >
 [[nodiscard]] auto transform( It it, It end, Function&& function, const size_t taskCount = defaultTasks() )
 {
-    using FuncRes = std::invoke_result_t<std::decay_t<Function>,decltype(*std::declval<const It&>())>;
+    using FuncRes = std::invoke_result_t<std::decay_t<Function>,decltype( *std::declval<const It&>() )>;
     using Result  = std::vector<std::decay_t<FuncRes>>;
     const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
     Result result(size);
@@ -288,66 +289,119 @@ template < class It, class Function >
     return result;
 }
 
-template < class It, class T, class BinOp >
-[[nodiscard]] T reduce( It it, It end, T init, BinOp&& binOp, const size_t taskCount = defaultTasks() )
+template < class It1, class It2, class T, class BinOp1, class BinOp2>
+[[nodiscard]] T transform_reduce( It1 it, It1 end, It2 it2, T init, BinOp1&& reduceOp, BinOp2&& transformOp, const size_t taskCount = defaultTasks() )
 {
-    if ( taskCount < 2 ) {
-        return std::reduce( std::move( it ), std::move( end ), std::move( init ), std::forward<BinOp>( binOp ) );
+    const size_t size{ static_cast<size_t>( std::distance( it , end ) ) };
+
+    if ( size < 2 || taskCount < 2 ) {
+        for ( ; it != end; ++it, ++it2 ) {
+            init = reduceOp( std::move( init ), transformOp( *it, *it2 ) );
+        }
+        return init;
     }
+    T* initP{ &init };
+    const size_t sizeMid{ ( size / 2) + ( size % 2 ) };
+    const bool dummy{};
 
-    if ( size_t n{ static_cast<size_t>( std::distance( it , end ) ) }; n > 1 ) {
-        T* initP{ &init };
-        const bool dummy{};
+    auto&& v{ transform( &dummy, &dummy + sizeMid,
+        [&]( const bool& curr )
+        {
+            const auto id{ 2 * std::distance( &dummy, &curr ) };
+            const It1 a{ std::next( it, id) };
+            const It2 b{ std::next( it2, id) };
 
-        auto&& v{ transform( &dummy, &dummy + ( ( n / 2) + ( n % 2 ) ),
+            if ( id + 1 < size ) {
+                return reduceOp( transformOp( *std::next( a, 1 ), *std::next( b, 1 ) ), transformOp( *a, *b ) );
+            }
+            return reduceOp( std::move( *std::exchange( initP, nullptr ) ), transformOp( *a, *b ) );
+        },
+        taskCount
+    ) };
+
+    for ( size_t n{ sizeMid }; n > 1; n = ( n / 2 ) + ( n % 2 ) ) {
+        const size_t mid{ n / 2 };
+
+        for_each( &dummy, &dummy + mid + ( initP ? ( n % 2 ) :0 ),
             [&]( const bool& curr )
             {
-                const auto id{ 2 * std::distance( &dummy, &curr ) };
-                const It a{ std::next( it, id) };
+                const auto id{ std::distance( &dummy, &curr ) };
 
-                if ( id + 1 < n ) {
-                    return binOp( *a, *std::next( a, 1 ) );
-                }
-                return binOp( *a, std::move( *std::exchange( initP, nullptr ) ) );
+                v[ id ] = reduceOp( std::move( id == mid ? *std::exchange( initP, nullptr ) : v[ n - ( id + 1 ) ] ), std::move( v[ id ] ) );
             },
             taskCount
-        ) };
-
-        for ( n = ( n / 2 ) + ( n % 2 ); n > 1; n = ( n / 2 ) + ( n % 2 ) ) {
-            const size_t mid{ n / 2 };
-
-            for_each( &dummy, &dummy + mid + ( initP ? ( n % 2 ) :0 ),
-                [&]( const bool& curr )
-                {
-                    const auto id{ std::distance( &dummy, &curr ) };
-
-                    v[ id ] = binOp( std::move( v[ id ] ), std::move( id == mid ? *std::exchange( initP, nullptr ) : v[ n - ( id+1 ) ] ) );
-                },
-                taskCount
-            );
-        }
-
-        if ( initP ) {
-            return binOp( std::move( v[ 0 ] ), std::move( init ) );
-        }
-        return std::move( v[ 0 ] );
-    } else if ( n ) {
-        return binOp( *it, std::move( init ) );
+        );
     }
-    return std::move( init );
+
+    if ( initP ) {
+        return reduceOp( std::move( *initP ), std::move( v[ 0 ] ) );
+    }
+    return std::move( v[ 0 ] );
+}
+
+template < class It1, class It2, class T>
+[[nodiscard]] T transform_reduce( It1 it, It1 end, It2 it2, T init, const size_t taskCount = defaultTasks() )
+{
+    return transform_reduce(
+        std::move( it ),
+        std::move( end ),
+        std::move( it2 ),
+        std::move( init ),
+        std::plus<>(),
+        std::multiplies<>(),
+        taskCount
+    );
+}
+
+template < class It, class T, class BinOp, class UnaryOp>
+[[nodiscard]] T transform_reduce( It it, It end, T init, BinOp&& reduceOp, UnaryOp&& transformOp, const size_t taskCount = defaultTasks() )
+{
+    using TransformRes = std::invoke_result_t< std::decay_t<UnaryOp>, decltype( *it ) >;
+
+    return transform_reduce(
+        it,
+        std::move( end ),
+        it,
+        std::move( init ),
+        std::forward<BinOp>( reduceOp ),
+        [&]( auto&& v, auto&& ) -> TransformRes
+        {
+            return transformOp( v );
+        },
+        taskCount
+    );
+}
+
+template < class It, class T, class BinOp >
+[[nodiscard]] T reduce( It it, It end, T init, BinOp&& reduceOp, const size_t taskCount = defaultTasks() )
+{
+    using TransformRes = decltype( *it );
+
+    return transform_reduce(
+        it,
+        std::move( end ),
+        it,
+        std::move( init ),
+        std::forward<BinOp>( reduceOp ),
+        []( auto&& v, auto&& ) -> TransformRes
+        {
+            return v;
+        },
+        taskCount
+    );
 }
 
 template < class It, class T>
 [[nodiscard]] T reduce( It it, It end, T init, const size_t taskCount = defaultTasks() )
 {
-    return reduce( std::move( it ), std::move( end ), std::move( init ), std::plus<T>{}, taskCount );
+    return reduce( std::move( it ), std::move( end ), std::move( init ), std::plus<>{}, taskCount );
 }
 
 template < class It>
 [[nodiscard]] auto reduce( It it, It end, const size_t taskCount = defaultTasks() )
 {
     using T = std::iterator_traits<It>::value_type;
-    return reduce( std::move( it ), std::move( end ), T{}, std::plus<T>{}, taskCount );
+    return reduce( std::move( it ), std::move( end ), T{}, std::plus<>{}, taskCount );
 }
 
 } // namespace partitioned_future
