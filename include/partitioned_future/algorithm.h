@@ -328,7 +328,7 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
                 const auto id{ std::distance( &dummy, &curr ) };
 
                 if ( id < mid ) {
-                    v[ id ] = reduceOp( std::move( v[ id ] ), v[ n - ( id + 1 ) ] );
+                    v[ id ] = reduceOp( std::move( v[ id ] ), std::move( v[ n - ( id + 1 ) ] ) );
                 } else {
                     v[ id ] = reduceOp( std::move( *std::exchange( initP, nullptr ) ), std::move( v[ id ] ) );
                 }
