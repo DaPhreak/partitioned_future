@@ -2,6 +2,7 @@
 
 #include "algorithm.h"
 #include <algorithm>
+#include <numeric>
 
 namespace std {
 namespace execution {
@@ -71,7 +72,7 @@ template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_Ex
 }
 
 template <class _ExPo, class _FwdIt, class _Ty, enable_if_execution_policy_t<_ExPo> = 0>
-[[nodiscard]] auto count(_ExPo&& _Exec, const _FwdIt _First, const _FwdIt _Last, const _Ty& _Val) noexcept
+[[nodiscard]] auto count(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last, const _Ty& _Val) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::count(std::move(_First),std::move(_Last),_Val);
@@ -81,7 +82,7 @@ template <class _ExPo, class _FwdIt, class _Ty, enable_if_execution_policy_t<_Ex
 }
 
 template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_ExPo> = 0>
-[[nodiscard]] auto count_if(_ExPo&& _Exec, const _FwdIt _First, const _FwdIt _Last, _Pr&& _Pred) noexcept
+[[nodiscard]] auto count_if(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last, _Pr&& _Pred) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::count_if(std::move(_First),std::move(_Last),std::forward<_Pr>(_Pred));
@@ -91,7 +92,7 @@ template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_Ex
 }
 
 template <class _ExPo, class _FwdIt, class _Ty, enable_if_execution_policy_t<_ExPo> = 0>
-[[nodiscard]] _FwdIt find(_ExPo&& _Exec, const _FwdIt _First, const _FwdIt _Last, const _Ty& _Val) noexcept
+[[nodiscard]] _FwdIt find(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last, const _Ty& _Val) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::find(std::move(_First),std::move(_Last),_Val);
@@ -101,7 +102,7 @@ template <class _ExPo, class _FwdIt, class _Ty, enable_if_execution_policy_t<_Ex
 }
 
 template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_ExPo> = 0>
-[[nodiscard]] _FwdIt find_if(_ExPo&& _Exec, const _FwdIt _First, const _FwdIt _Last, _Pr&& _Pred) noexcept
+[[nodiscard]] _FwdIt find_if(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last, _Pr&& _Pred) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::find_if(std::move(_First),std::move(_Last),std::forward<_Pr>(_Pred));
@@ -111,7 +112,7 @@ template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_Ex
 }
 
 template <class _ExPo, class _FwdIt, class _Pr, enable_if_execution_policy_t<_ExPo> = 0>
-[[nodiscard]] _FwdIt find_if_not(_ExPo&& _Exec, const _FwdIt _First, const _FwdIt _Last, _Pr&& _Pred) noexcept
+[[nodiscard]] _FwdIt find_if_not(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last, _Pr&& _Pred) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::find_if_not(std::move(_First),std::move(_Last),std::forward<_Pr>(_Pred));
@@ -131,17 +132,17 @@ void for_each(_ExPo&&, _FwdIt _First, _FwdIt _Last, _Fn&& _Func) noexcept
 }
 
 template <class _ExPo, class _FwdIt, class _Diff, class _Fn, enable_if_execution_policy_t<_ExPo> = 0>
-_FwdIt for_each_n(_ExPo&&, _FwdIt _First, const _Diff _Count_raw, _Fn&& _Func) noexcept
+_FwdIt for_each_n(_ExPo&&, _FwdIt _First, _Diff _Count_raw, _Fn&& _Func) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
-        return partitioned_future::for_each_n(std::move(_First),_Count_raw,std::forward<_Fn>(_Func));
+        return partitioned_future::for_each_n(std::move(_First),std::move(_Count_raw),std::forward<_Fn>(_Func));
     } else {
-        return std::for_each_n(std::move(_First),_Count_raw,std::forward<_Fn>(_Func));
+        return std::for_each_n(std::move(_First),std::move(_Count_raw),std::forward<_Fn>(_Func));
     }
 }
 
 template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Fn, enable_if_execution_policy_t<_ExPo> = 0>
-_FwdIt2 transform(_ExPo&&, const _FwdIt1 _First, const _FwdIt1 _Last, _FwdIt2 _Dest, _Fn&& _Func) noexcept
+_FwdIt2 transform(_ExPo&&, _FwdIt1 _First, _FwdIt1 _Last, _FwdIt2 _Dest, _Fn&& _Func) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::transform(std::move(_First),std::move(_Last),std::move(_Dest),std::forward<_Fn>(_Func));
@@ -151,7 +152,7 @@ _FwdIt2 transform(_ExPo&&, const _FwdIt1 _First, const _FwdIt1 _Last, _FwdIt2 _D
 }
 
 template <class _ExPo, class _FwdIt1, class _FwdIt2, class _FwdIt3, class _Fn, enable_if_execution_policy_t<_ExPo> = 0>
-_FwdIt3 transform(_ExPo&&, const _FwdIt1 _First1, const _FwdIt1 _Last1, const _FwdIt2 _First2, _FwdIt3 _Dest, _Fn&& _Func) noexcept
+_FwdIt3 transform(_ExPo&&, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _First2, _FwdIt3 _Dest, _Fn&& _Func) noexcept
 {
     if constexpr (remove_reference_t<_ExPo>::parallelize) {
         return partitioned_future::transform(std::move(_First1),std::move(_Last1),std::move(_First2),std::move(_Dest),std::forward<_Fn>(_Func));
@@ -197,6 +198,66 @@ _FwdIt2 move(_ExPo&&, _FwdIt1 _First, _FwdIt1 _Last, _FwdIt2 _Dest) noexcept
         return std::move(std::move(_First),std::move(_Last),std::move(_Dest));
     } else {
         return std::move(std::move(_First),std::move(_Last),std::move(_Dest));
+    }
+}
+
+template <class _ExPo, class _FwdIt, enable_if_execution_policy_t<_ExPo> = 0>
+[[nodiscard]] auto reduce(_ExPo&& _Exec, _FwdIt _First, _FwdIt _Last) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::reduce(std::move(_First),std::move(_Last));
+    } else {
+        return std::reduce(std::move(_First),std::move(_Last));
+    }
+}
+
+template <class _ExPo, class _FwdIt, class _Ty, class _BinOp, enable_if_execution_policy_t<_ExPo> = 0>
+[[nodiscard]] _Ty reduce(_ExPo&&, _FwdIt _First, _FwdIt _Last, _Ty _Val) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::reduce(std::move(_First),std::move(_Last),std::move(_Val));
+    } else {
+        return std::reduce(std::move(_First),std::move(_Last),std::move(_Val));
+    }
+}
+
+template <class _ExPo, class _FwdIt, class _Ty, class _BinOp, enable_if_execution_policy_t<_ExPo> = 0>
+[[nodiscard]] _Ty reduce(_ExPo&&, _FwdIt _First, _FwdIt _Last, _Ty _Val, _BinOp&& _Reduce_op) noexcept
+{
+    if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::reduce(std::move(_First),std::move(_Last),std::move(_Val),std::forward<_BinOp>(_Reduce_op));
+    } else {
+        return std::reduce(std::move(_First),std::move(_Last),std::move(_Val),std::forward<_BinOp>(_Reduce_op));
+    }
+}
+
+template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Ty, enable_if_execution_policy_t<_ExPo> = 0>
+_Ty transform_reduce(_ExPo&& _Exec, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _First2, _Ty _Val) noexcept
+{
+   if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::transform_reduce(std::move(_First1),std::move(_Last1),std::move(_First2),std::move(_Val));
+    } else {
+        return std::transform_reduce(std::move(_First1),std::move(_Last1),std::move(_First2),std::move(_Val));
+    }
+}
+
+template <class _ExPo, class _FwdIt, class _Ty, class _BinOp, class _UnaryOp, enable_if_execution_policy_t<_ExPo> = 0>
+[[nodiscard]] _Ty transform_reduce(_ExPo&&, _FwdIt _First, _FwdIt _Last, _Ty _Val, _BinOp&& _Reduce_op, _UnaryOp&& _Transform_op) noexcept
+{
+   if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::transform_reduce(std::move(_First),std::move(_Last),std::move(_Val),std::forward<_BinOp>(_Reduce_op),std::forward<_UnaryOp>(_Transform_op));
+    } else {
+        return std::transform_reduce(std::move(_First),std::move(_Last),std::move(_Val),std::forward<_BinOp>(_Reduce_op),std::forward<_UnaryOp>(_Transform_op));
+    }
+}
+
+template <class _ExPo, class _FwdIt1, class _FwdIt2, class _Ty, class _BinOp1, class _BinOp2, enable_if_execution_policy_t<_ExPo> = 0>
+[[nodiscard]] _Ty transform_reduce(_ExPo&&, _FwdIt1 _First1, _FwdIt1 _Last1, _FwdIt2 _First2, _Ty _Val, _BinOp1 _Reduce_op, _BinOp2 _Transform_op) noexcept
+{
+   if constexpr (remove_reference_t<_ExPo>::parallelize) {
+        return std::transform_reduce(std::move(_First1),std::move(_Last1),std::move(_First2),std::move(_Val),std::forward<_BinOp1>(_Reduce_op),std::forward<_BinOp2>(_Transform_op));
+    } else {
+        return std::transform_reduce(std::move(_First1),std::move(_Last1),std::move(_First2),std::move(_Val),std::forward<_BinOp1>(_Reduce_op),std::forward<_BinOp2>(_Transform_op));
     }
 }
 
