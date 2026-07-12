@@ -446,6 +446,21 @@ TEST_CASE("Test reduce", "[partitioned_future]")
 
         REQUIRE ( a == b );
     }
+    {
+        const std::string hello{ "Hello!" };
+        std::vector<std::string> strings{ 100, hello };
+
+        const auto a{ std::reduce(
+            std::execution::par,
+            std::make_move_iterator( strings.begin() ),
+            std::make_move_iterator( strings.end() ),
+            std::string{}
+        ) };
+
+        REQUIRE ( a.size() == hello.size() * strings.size() );
+        REQUIRE ( a.substr( 0, hello.size() ) == hello );
+    }
+
 }
 
 TEST_CASE("Test transform", "[partitioned_future]")

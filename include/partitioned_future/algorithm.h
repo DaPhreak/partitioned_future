@@ -312,22 +312,22 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
             const It2 b{ std::next( it2, id) };
 
             if ( id + 1 < size ) {
-                return reduceOp( transformOp( *std::next( a, 1 ), *std::next( b, 1 ) ), transformOp( *a, *b ) );
+                return reduceOp( transformOp( *a, *b ), transformOp( *std::next( a, 1 ), *std::next( b, 1 ) ) );
+            } else {
+                return reduceOp( std::move( *std::exchange( initP, nullptr ) ), transformOp( *a, *b ) );
             }
-            return reduceOp( std::move( *std::exchange( initP, nullptr ) ), transformOp( *a, *b ) );
         },
         taskCount
     ) };
 
-    for ( size_t n{ sizeMid }; n > 1; n = ( n / 2 ) + ( n % 2 ) ) {
+    for ( size_t n{ sizeMid }; n > 1; ) {
         const size_t mid{ n / 2 };
+        const size_t mod{ n % 2 };
 
-        for_each( &dummy, &dummy + mid + ( initP ? ( n % 2 ) :0 ),
+        for_each( &dummy, &dummy + mid + ( initP ? mod :0 ),
             [&]( const bool& curr )
             {
-                const auto id{ std::distance( &dummy, &curr ) };
-
-                if ( id < mid ) {
+                if ( const auto id{ std::distance( &dummy, &curr ) }; id < mid ) {
                     v[ id ] = reduceOp( std::move( v[ id ] ), std::move( v[ n - ( id + 1 ) ] ) );
                 } else {
                     v[ id ] = reduceOp( std::move( *std::exchange( initP, nullptr ) ), std::move( v[ id ] ) );
@@ -335,6 +335,7 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
             },
             taskCount
         );
+        n = mid + mod;
     }
 
     if ( initP ) {
@@ -370,7 +371,7 @@ template < class It, class T, class BinOp, class UnaryOp>
         std::forward<BinOp>( reduceOp ),
         [&]( auto&& v, auto&& ) -> TransformRes
         {
-            return transformOp( v );
+            return std::forward<TransformRes>( transformOp( v ) );
         },
         taskCount
     );
@@ -389,7 +390,7 @@ template < class It, class T, class BinOp >
         std::forward<BinOp>( reduceOp ),
         []( auto&& v, auto&& ) -> TransformRes
         {
-            return v;
+            return std::forward<TransformRes>( v );
         },
         taskCount
     );
