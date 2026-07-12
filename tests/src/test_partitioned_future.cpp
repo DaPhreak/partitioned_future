@@ -10,7 +10,7 @@
 
 namespace {
 
-TEST_CASE("x_of", "[partitioned_future]")
+TEST_CASE("Test x_of", "[partitioned_future]")
 {
     const std::initializer_list list{ 1, 2, 3, 4, 5, 7, 6, 24, 16, 32 };
 
@@ -124,7 +124,7 @@ TEST_CASE("x_of", "[partitioned_future]")
     );
 }
 
-TEST_CASE("count", "[partitioned_future]")
+TEST_CASE("Test count", "[partitioned_future]")
 {
     const std::initializer_list list{ 
                                         1,
@@ -281,7 +281,7 @@ TEST_CASE("Test for each", "[partitioned_future]")
             s = std::move( std::to_string( &s - begin ) += std::string_view{ ". long string does not fit in SSO" } );
         };
     }};
-    std::vector<std::string> stringVector1{ std::thread::hardware_concurrency() * 2 + 3 };
+    std::vector<std::string> stringVector1{ partitioned_future::defaultTasks() * 2 + 3 };
 
     std::for_each(
         std::execution::seq,
@@ -321,10 +321,71 @@ TEST_CASE("Test for each", "[partitioned_future]")
     REQUIRE( stringVector1 == stringVector2 );
 }
 
+TEST_CASE("Test reduce", "[partitioned_future]")
+{
+    std::vector<size_t> intVector( 10'000 );
+ 
+    std::iota( intVector.begin(), intVector.end(), 0 );
+
+    {
+        const auto a{ std::reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end()
+        ) };
+
+        const auto b{ std::reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end()
+        ) };
+
+        REQUIRE ( a == b );
+    }
+
+    {
+        const auto a{ std::reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 }
+        ) };
+
+        const auto b{ std::reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 }
+        ) };
+
+        REQUIRE ( a == b );
+    }
+
+    {
+        const auto a{ std::reduce(
+            std::execution::seq,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 },
+            std::plus<>()
+        ) };
+
+        const auto b{ std::reduce(
+            std::execution::par,
+            intVector.begin(),
+            intVector.end(),
+            size_t{ 22 },
+            std::plus<>()
+        ) };
+
+        REQUIRE ( a == b );
+    }
+}
+
 TEST_CASE("Test transform", "[partitioned_future]")
 {
     constexpr auto function{ []( const size_t i ) { return std::to_string( i ); } };
-    std::vector<size_t> intVector( std::thread::hardware_concurrency() * 2 + 3 );
+    std::vector<size_t> intVector( partitioned_future::defaultTasks() * 2 + 3 );
  
     std::iota( intVector.begin(), intVector.end(), 0 );
     std::vector<std::string> stringVector1( intVector.size() );
@@ -381,7 +442,7 @@ TEST_CASE("Test transform", "[partitioned_future]")
 
 TEST_CASE("Test make_futures", "[partitioned_future]")
 {
-    std::vector<std::string> stringVector1( std::thread::hardware_concurrency() * 2 + 3 );
+    std::vector<std::string> stringVector1( partitioned_future::defaultTasks() * 2 + 3 );
 
     for ( size_t i{}; i < stringVector1.size(); i++ ) {
         stringVector1[i] = std::to_string( i );

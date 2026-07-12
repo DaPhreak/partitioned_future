@@ -6,11 +6,18 @@
 
 namespace partitioned_future {
 
-template < class It, class Function >
-[[nodiscard]] auto make_futures( It it, const size_t size, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() );
+inline [[nodiscard]] size_t defaultTasks() noexcept
+{
+    static const size_t res{ std::thread::hardware_concurrency() };
+    return res;
+}
+
 
 template < class It, class Function >
-[[nodiscard]] auto make_futures( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] auto make_futures( It it, const size_t size, Function&& function, const size_t taskCount = defaultTasks() );
+
+template < class It, class Function >
+[[nodiscard]] auto make_futures( It it, It end, Function&& function, const size_t taskCount = defaultTasks() )
 {
     const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
 

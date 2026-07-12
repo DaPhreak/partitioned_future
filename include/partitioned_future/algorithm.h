@@ -8,10 +8,10 @@
 namespace partitioned_future {
 
 template < class It, class Function >
-void for_each( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() );
+void for_each( It it, It end, Function&& function, const size_t taskCount = defaultTasks() );
 
 template < class It, class Pred >
-[[nodiscard]] bool all_of( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] bool all_of( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     if ( it == end ) {
         return true;
@@ -35,7 +35,7 @@ template < class It, class Pred >
 }
 
 template < class It, class Pred >
-[[nodiscard]] bool any_of( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] bool any_of( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     if ( it == end ) {
         return false;
@@ -59,7 +59,7 @@ template < class It, class Pred >
 }
 
 template < class It, class Pred >
-[[nodiscard]] bool none_of( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] bool none_of( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     if ( it == end ) {
         return true;
@@ -83,7 +83,7 @@ template < class It, class Pred >
 }
 
 template < class It, class Pred >
-[[nodiscard]] typename std::iterator_traits<It>::difference_type count_if( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] typename std::iterator_traits<It>::difference_type count_if( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     if ( it == end ) {
         return {};
@@ -105,7 +105,7 @@ template < class It, class Pred >
 }
 
 template < class It, class T >
-[[nodiscard]] typename std::iterator_traits<It>::difference_type count( It it, It end, const T& value, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] typename std::iterator_traits<It>::difference_type count( It it, It end, const T& value, const size_t taskCount = defaultTasks() )
 {
     return count_if(
         std::move( it ),
@@ -119,7 +119,7 @@ template < class It, class T >
 }
 
 template < class It, class Pred >
-[[nodiscard]] It find_if( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] It find_if( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     if ( it == end ) {
         return it;
@@ -163,7 +163,7 @@ template < class It, class Pred >
 }
 
 template < class It, class Pred >
-[[nodiscard]] It find_if_not( It it, It end, Pred&& pred, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] It find_if_not( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
     return find_if(
         std::move( it ),
@@ -177,7 +177,7 @@ template < class It, class Pred >
 }
 
 template < class It, class T >
-[[nodiscard]] It find( It it, It end, const T& value, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] It find( It it, It end, const T& value, const size_t taskCount = defaultTasks() )
 {
     return find_if(
         std::move( it ),
@@ -209,7 +209,7 @@ void for_each( It it, It end, Function&& function, const size_t taskCount )
 }
 
 template < class It, class Diff, class Function >
-It for_each_n( It it, const Diff count, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+It for_each_n( It it, const Diff count, Function&& function, const size_t taskCount = defaultTasks() )
 {
     if ( count < 1 ) {
         return it;
@@ -221,7 +221,7 @@ It for_each_n( It it, const Diff count, Function&& function, const size_t taskCo
 }
 
 template < class It, class OutputIt, class Function >
-OutputIt transform( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+OutputIt transform( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = defaultTasks() )
 {
     const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
     OutputIt result{ std::next( dest, size ) };
@@ -243,7 +243,7 @@ OutputIt transform( It it, It end, OutputIt dest, Function&& function, const siz
 }
 
 template < class It, class It2, class OutputIt, class Function >
-OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, const size_t taskCount = defaultTasks() )
 {
     const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
     OutputIt result{ std::next( dest, size ) };
@@ -265,7 +265,7 @@ OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, 
 }
 
 template < class It, class Function >
-[[nodiscard]] auto transform( It it, It end, Function&& function, const size_t taskCount = std::thread::hardware_concurrency() )
+[[nodiscard]] auto transform( It it, It end, Function&& function, const size_t taskCount = defaultTasks() )
 {
     using FuncRes = std::invoke_result_t<std::decay_t<Function>,decltype(*std::declval<const It&>())>;
     using Result  = std::vector<std::decay_t<FuncRes>>;
@@ -286,6 +286,68 @@ template < class It, class Function >
        future.get();
     }
     return result;
+}
+
+template < class It, class T, class BinOp >
+[[nodiscard]] T reduce( It it, It end, T init, BinOp&& binOp, const size_t taskCount = defaultTasks() )
+{
+    if ( taskCount < 2 ) {
+        return std::reduce( std::move( it ), std::move( end ), std::move( init ), std::forward<BinOp>( binOp ) );
+    }
+
+    if ( size_t n{ static_cast<size_t>( std::distance( it , end ) ) }; n > 1 ) {
+        T* initP{ &init };
+        const bool dummy{};
+
+        auto&& v{ transform( &dummy, &dummy + ( ( n / 2) + ( n % 2 ) ),
+            [&]( const bool& curr )
+            {
+                const auto id{ 2 * std::distance( &dummy, &curr ) };
+                const It a{ std::next( it, id) };
+
+                if ( id + 1 < n ) {
+                    return binOp( *a, *std::next( a, 1 ) );
+                }
+                return binOp( *a, std::move( *std::exchange( initP, nullptr ) ) );
+            },
+            taskCount
+        ) };
+
+        for ( n = ( n / 2 ) + ( n % 2 ); n > 1; n = ( n / 2 ) + ( n % 2 ) ) {
+            const size_t mid{ n / 2 };
+
+            for_each( &dummy, &dummy + mid + ( initP ? ( n % 2 ) :0 ),
+                [&]( const bool& curr )
+                {
+                    const auto id{ std::distance( &dummy, &curr ) };
+
+                    v[ id ] = binOp( std::move( v[ id ] ), std::move( id == mid ? *std::exchange( initP, nullptr ) : v[ n - ( id+1 ) ] ) );
+                },
+                taskCount
+            );
+        }
+
+        if ( initP ) {
+            return binOp( std::move( v[ 0 ] ), std::move( init ) );
+        }
+        return std::move( v[ 0 ] );
+    } else if ( n ) {
+        return binOp( *it, std::move( init ) );
+    }
+    return std::move( init );
+}
+
+template < class It, class T>
+[[nodiscard]] T reduce( It it, It end, T init, const size_t taskCount = defaultTasks() )
+{
+    return reduce( std::move( it ), std::move( end ), std::move( init ), std::plus<T>{}, taskCount );
+}
+
+template < class It>
+[[nodiscard]] auto reduce( It it, It end, const size_t taskCount = defaultTasks() )
+{
+    using T = std::iterator_traits<It>::value_type;
+    return reduce( std::move( it ), std::move( end ), T{}, std::plus<T>{}, taskCount );
 }
 
 } // namespace partitioned_future
