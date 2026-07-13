@@ -2,11 +2,12 @@
 
 #include <future>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace partitioned_future {
 
-inline [[nodiscard]] size_t defaultTasks() noexcept
+[[nodiscard]] inline size_t defaultTasks() noexcept
 {
     static const size_t res{ std::thread::hardware_concurrency() };
     return res;
