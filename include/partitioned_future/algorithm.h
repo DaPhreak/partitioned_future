@@ -17,6 +17,9 @@ template < class It, class Pred >
     if ( it == end ) {
         return true;
     }
+    if ( const bool first{ pred( *it++ ) }; ! first || it == end ) {
+        return first;
+    }
     std::atomic<bool> result{ true };
 
     for_each(
@@ -41,6 +44,9 @@ template < class It, class Pred >
     if ( it == end ) {
         return false;
     }
+    if ( const bool first{ pred( *it++ ) }; first || it == end ) {
+        return first;
+    }
     std::atomic<bool> result{ false };
 
     for_each(
@@ -62,25 +68,12 @@ template < class It, class Pred >
 template < class It, class Pred >
 [[nodiscard]] bool none_of( It it, It end, Pred&& pred, const size_t taskCount = defaultTasks() )
 {
-    if ( it == end ) {
-        return true;
-    }
-    std::atomic<bool> result{ true };
-
-    for_each(
+    return ! any_of(
         std::move( it ),
         std::move( end ),
-        [ & ]( const auto& v )
-        {
-            if (
-                result.load( std::memory_order_relaxed ) &&
-                pred( v ) ) {
-                result.store( false );
-            }
-        },
+        std::forward<Pred>( pred ),
         taskCount
     );
-    return result.load();
 }
 
 template < class It, class Pred >
@@ -94,9 +87,9 @@ template < class It, class Pred >
     for_each(
         std::move( it ),
         std::move( end ),
-        [ & ]( const auto& v )
+        [ & ]( auto&& v )
         {
-            if ( pred( v ) ) {
+            if ( pred( std::forward<decltype( v )>( v ) ) ) {
                 ++result;
             }
         },
@@ -169,9 +162,9 @@ template < class It, class Pred >
     return find_if(
         std::move( it ),
         std::move( end ),
-        [ & ]( const auto& v )
+        [ & ]( auto&& v )
         {
-            return ! pred( v );
+            return ! pred( std::forward<decltype( v )>( v ) );
         },
         taskCount
     );
@@ -224,45 +217,49 @@ It for_each_n( It it, const Diff count, Function&& function, const size_t taskCo
 template < class It, class OutputIt, class Function >
 OutputIt transform( It it, It end, OutputIt dest, Function&& function, const size_t taskCount = defaultTasks() )
 {
-    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
-    OutputIt result{ std::next( dest, size ) };
+    if ( const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) } ) {
+        OutputIt result{ std::next( dest, size ) };
 
-    auto&& futures{ make_futures(
-        std::move( it ),
-        size,
-        [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
-        {
-            *std::next( dest, id ) = function( *it );
-        },
-        taskCount )
-    };
+        auto&& futures{ make_futures(
+            std::move( it ),
+            size,
+            [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
+            {
+                *std::next( dest, id ) = function( *it );
+            },
+            taskCount )
+        };
 
-    for ( auto& future: futures ) {
-       future.get();
+        for ( auto& future: futures ) {
+           future.get();
+        }
+        return result;
     }
-    return result;
+    return dest;
 }
 
 template < class It, class It2, class OutputIt, class Function >
 OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, const size_t taskCount = defaultTasks() )
 {
-    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
-    OutputIt result{ std::next( dest, size ) };
+    if ( const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) } ) {
+        OutputIt result{ std::next( dest, size ) };
 
-    auto&& futures{ make_futures(
-        std::move( it ),
-        size,
-        [ &function, it2 = std::move( it2 ), dest = std::move( dest ) ]( const size_t id, const It& it )
-        {
-            *std::next( dest, id ) = function( *it, *std::next( it2, id ) );
-        },
-        taskCount )
-    };
+        auto&& futures{ make_futures(
+            std::move( it ),
+            size,
+            [ &function, it2 = std::move( it2 ), dest = std::move( dest ) ]( const size_t id, const It& it )
+            {
+                *std::next( dest, id ) = function( *it, *std::next( it2, id ) );
+            },
+            taskCount )
+        };
 
-    for ( auto& future: futures ) {
-       future.get();
+        for ( auto& future: futures ) {
+           future.get();
+        }
+        return result;
     }
-    return result;
+    return dest;
 }
 
 template < class It, class Function >
@@ -270,23 +267,26 @@ template < class It, class Function >
 {
     using FuncRes = std::invoke_result_t<std::decay_t<Function>,decltype( *std::declval<const It&>() )>;
     using Result  = std::vector<std::decay_t<FuncRes>>;
-    const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) };
-    Result result(size);
 
-    auto&& futures{ make_futures(
-        std::move( it ),
-        size,
-        [ &function, dest = result.begin() ]( const size_t id, const It& it )
-        {
-            *std::next( dest, id ) = function( *it );
-        },
-        taskCount )
-    };
+    if ( const size_t size{ static_cast<size_t>( std::distance( it, std::move( end ) ) ) } ) {
+        Result result(size);
 
-    for ( auto& future: futures ) {
-       future.get();
+        auto&& futures{ make_futures(
+            std::move( it ),
+            size,
+            [ &function, dest = result.begin() ]( const size_t id, const It& it )
+            {
+                *std::next( dest, id ) = function( *it );
+            },
+            taskCount )
+        };
+
+        for ( auto& future: futures ) {
+           future.get();
+        }
+        return result;
     }
-    return result;
+    return Result{};
 }
 
 template < class It1, class It2, class T, class BinOp1, class BinOp2>
@@ -302,10 +302,10 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
     }
     T* initP{ &init };
     const size_t sizeMid{ ( size / 2) + ( size % 2 ) };
-    const bool dummy{};
+    const std::false_type dummy{};
 
     auto&& v{ transform( &dummy, &dummy + sizeMid,
-        [&]( const bool& curr )
+        [&]( const auto& curr )
         {
             const auto id{ 2 * std::distance( &dummy, &curr ) };
             const It1 a{ std::next( it, id) };
@@ -325,7 +325,7 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
         const size_t mod{ n % 2 };
 
         for_each( &dummy, &dummy + mid + ( initP ? mod :0 ),
-            [&]( const bool& curr )
+            [&]( const auto& curr )
             {
                 if ( const auto id{ std::distance( &dummy, &curr ) }; id < mid ) {
                     v[ id ] = reduceOp( std::move( v[ id ] ), std::move( v[ n - ( id + 1 ) ] ) );
@@ -362,16 +362,17 @@ template < class It, class T, class BinOp, class UnaryOp>
 [[nodiscard]] T transform_reduce( It it, It end, T init, BinOp&& reduceOp, UnaryOp&& transformOp, const size_t taskCount = defaultTasks() )
 {
     using TransformRes = std::invoke_result_t< std::decay_t<UnaryOp>, decltype( *it ) >;
+    const std::false_type dummy{};
 
     return transform_reduce(
-        it,
+        std::move( it ),
         std::move( end ),
-        it,
+        &dummy,
         std::move( init ),
         std::forward<BinOp>( reduceOp ),
         [&]( auto&& v, auto&& ) -> TransformRes
         {
-            return std::forward<TransformRes>( transformOp( v ) );
+            return std::forward<TransformRes>( transformOp( std::forward<decltype( v )>( v ) ) );
         },
         taskCount
     );
@@ -381,11 +382,12 @@ template < class It, class T, class BinOp >
 [[nodiscard]] T reduce( It it, It end, T init, BinOp&& reduceOp, const size_t taskCount = defaultTasks() )
 {
     using TransformRes = decltype( *it );
+    const std::false_type dummy{};
 
     return transform_reduce(
-        it,
+        std::move( it ),
         std::move( end ),
-        it,
+        &dummy,
         std::move( init ),
         std::forward<BinOp>( reduceOp ),
         []( auto&& v, auto&& ) -> TransformRes

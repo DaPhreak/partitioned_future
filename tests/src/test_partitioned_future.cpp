@@ -51,6 +51,15 @@ TEST_CASE("Test x_of", "[partitioned_future]")
     );
 
     REQUIRE(
+        ! std::all_of(
+            std::execution::par,
+            list.begin(),
+            list.end(),
+            [&]( const auto& i ) { return i == 0; }
+        )
+    );
+
+    REQUIRE(
         std::any_of(
             std::execution::seq,
             list.begin(),
@@ -65,6 +74,15 @@ TEST_CASE("Test x_of", "[partitioned_future]")
             list.begin(),
             list.end(),
             [&]( const auto& i ) { return i == *( list.end() - 1); }
+        )
+    );
+
+    REQUIRE(
+        std::any_of(
+            std::execution::par,
+            list.begin(),
+            list.end(),
+            [&]( const auto& i ) { return i == 1; }
         )
     );
 
