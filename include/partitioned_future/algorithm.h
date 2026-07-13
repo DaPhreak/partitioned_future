@@ -82,7 +82,7 @@ template < class It, class Pred >
     if ( it == end ) {
         return {};
     }
-    std::atomic<std::iterator_traits<It>::difference_type> result{};
+    std::atomic<typename std::iterator_traits<It>::difference_type> result{};
 
     for_each(
         std::move( it ),
@@ -407,7 +407,7 @@ template < class It, class T>
 template < class It>
 [[nodiscard]] auto reduce( It it, It end, const size_t taskCount = defaultTasks() )
 {
-    using T = std::iterator_traits<It>::value_type;
+    using T = typename std::iterator_traits<It>::value_type;
     return reduce( std::move( it ), std::move( end ), T{}, std::plus<>{}, taskCount );
 }
 
