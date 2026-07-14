@@ -506,7 +506,7 @@ TEST_CASE("Test reduce", "[partitioned_future]")
         for ( auto& v: strings ) {
             v.reserve( subSize );
             for ( size_t i = 0; i < subSize; i++ ) {
-                v.emplace_back( std::make_unique<std::string>( hello) );
+                v.emplace_back( std::make_unique<std::string>( hello ) );
             }
         }
 
