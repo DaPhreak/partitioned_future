@@ -51,11 +51,11 @@ template < class It, class Function >
 
     if ( const size_t taskNr{ std::min( std::max( taskCount, size_t{1} ), size ) } ) {
         const size_t chunkFloor{ size / taskNr };
-        size_t       rest{ size % taskNr };
+        const size_t restId{ taskNr - ( size % taskNr ) };
 
         res.reserve( taskNr );
         for ( size_t i{}, offset{}; i < taskNr; ++i ) {
-            const size_t chunkSize{ chunkFloor + ( rest ? 1 : 0) };
+            const size_t chunkSize{ chunkFloor + ( i >= restId ? 1 : 0 ) };
 
             res.emplace_back( std::async(
                 std::launch::deferred | ( i ? std::launch::async : std::launch::deferred ),
@@ -82,9 +82,6 @@ template < class It, class Function >
             ) );
             std::advance( it, chunkSize );
             offset += chunkSize;
-            if ( rest ) {
-                --rest;
-            }
         }
     }
     return res;

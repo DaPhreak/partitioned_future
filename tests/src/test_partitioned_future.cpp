@@ -551,7 +551,7 @@ TEST_CASE("Test make_futures", "[partitioned_future]")
         stringVector1.begin(),
         stringVector1.end(),
         []( auto&& it ) -> std::string& { return *it; }
-        ) };
+    ) };
     std::vector<std::string> stringVector2;
 
     stringVector2.reserve( stringVector1.size() );
