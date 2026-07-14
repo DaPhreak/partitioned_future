@@ -293,9 +293,9 @@ template < class It, class Function >
 template < class It1, class It2, class T, class BinOp1, class BinOp2>
 [[nodiscard]] T transform_reduce( It1 it, It1 end, It2 it2, T init, BinOp1&& reduceOp, BinOp2&& transformOp, const size_t taskCount = defaultTasks() )
 {
-    const size_t size{ static_cast<size_t>( std::distance( it , end ) ) };
+    const size_t size{ static_cast<size_t>( std::distance( it, end ) ) };
 
-    if ( size < 2 || taskCount < 2 ) {
+    if ( size < 3 || taskCount < 2 ) {
         for ( ; it != end; ++it, ++it2 ) {
             init = reduceOp( std::move( init ), transformOp( *it, *it2 ) );
         }
@@ -305,23 +305,50 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
     const size_t sizeMid{ ( size / 2) + ( size % 2 ) };
     const std::false_type dummy{};
 
-    auto&& v{ transform( &dummy, &dummy + sizeMid,
+    auto futures{ make_futures( &dummy, sizeMid,
+        [&]( auto&&, const size_t offset, const size_t chunkSize )
+        {
+            const auto reduce{[&]( const size_t chunkId )
+            {
+                const auto id{ 2 * ( offset + chunkId ) };
+                const It1 a{ std::next( it, id) };
+                const It2 b{ std::next( it2, id) };
+
+                if ( id + 1 < size ) {
+                    return reduceOp( transformOp( *a, *b ), transformOp( *std::next( a ), *std::next( b ) ) );
+                } else {
+                    return reduceOp( std::move( *std::exchange( initP, nullptr ) ), transformOp( *a, *b ) );
+                }
+            } };
+            T result{ reduce( 0 ) };
+
+            for ( size_t i{ 1 }; i < chunkSize; ++i ) {
+                result = reduceOp( std::move( result ), reduce( i ) );
+            }
+            return result;
+        },
+        taskCount
+    ) };
+    const size_t futuresSize{ futures.size() };
+    const size_t futuresMid{ ( futuresSize / 2) + ( futuresSize % 2 ) };
+
+    auto v{ transform( &dummy, &dummy + futuresMid,
         [&]( const auto& curr )
         {
             const auto id{ 2 * std::distance( &dummy, &curr ) };
-            const It1 a{ std::next( it, id) };
-            const It2 b{ std::next( it2, id) };
 
-            if ( id + 1 < size ) {
-                return reduceOp( transformOp( *a, *b ), transformOp( *std::next( a, 1 ), *std::next( b, 1 ) ) );
+            if ( id + 1 < futuresSize ) {
+                return reduceOp( futures[ id ].get(), futures[ id + 1 ].get() );
+            } else if ( initP ) {
+                return reduceOp( std::move( *std::exchange( initP, nullptr ) ), futures[ id ].get() );
             } else {
-                return reduceOp( std::move( *std::exchange( initP, nullptr ) ), transformOp( *a, *b ) );
+                return futures[ id ].get();
             }
         },
         taskCount
     ) };
 
-    for ( size_t n{ sizeMid }; n > 1; ) {
+    for ( size_t n{ v.size() }; n > 1; ) {
         const size_t mid{ n / 2 };
         const size_t mod{ n % 2 };
 

@@ -472,11 +472,27 @@ TEST_CASE("Test reduce", "[partitioned_future]")
             std::execution::par,
             std::make_move_iterator( strings.begin() ),
             std::make_move_iterator( strings.end() ),
-            std::string{}
+            hello
         ) };
 
-        REQUIRE ( a.size() == hello.size() * strings.size() );
+        REQUIRE ( a.size() == ( hello.size() * strings.size() ) + hello.size() );
         REQUIRE ( a.substr( 0, hello.size() ) == hello );
+    }
+    {
+        const std::string hello{ "Hello!" };
+        std::vector<std::string> strings{ 201, hello };
+
+        for ( size_t i = 0; i < strings.size(); i++ ) {
+            const auto a{ std::reduce(
+                std::execution::par,
+                strings.begin(),
+                strings.begin() + i,
+                hello
+            ) };
+
+            REQUIRE ( a.size() == ( hello.size() * i ) + hello.size() );
+            REQUIRE ( a.substr( 0, hello.size() ) == hello );
+        }
     }
 
 }
