@@ -498,7 +498,35 @@ TEST_CASE("Test reduce", "[partitioned_future]")
             }
         }
     }
+    {
+        constexpr size_t subSize{ 21 };
+        const std::string hello{ "Hello!" };
+        std::vector<std::vector<std::unique_ptr<std::string>>> strings( 201 );
 
+        for ( auto& v: strings ) {
+            v.reserve( subSize );
+            for ( size_t i = 0; i < subSize; i++ ) {
+                v.emplace_back( std::make_unique<std::string>( hello) );
+            }
+        }
+
+        const auto a{ std::reduce(
+            std::execution::par,
+            strings.begin(),
+            strings.end(),
+            std::vector<std::unique_ptr<std::string>>{},
+            []( auto&& a, auto&& b )
+            {
+                a.insert( a.end(), std::make_move_iterator( b.begin() ), std::make_move_iterator( b.end() ) );
+                return std::move( a );
+            }
+        ) };
+
+        REQUIRE ( a.size() == strings.size() * subSize );
+        for ( const auto& v: a ) {
+            REQUIRE ( ( v && *v == hello ) );
+        }
+    }
 }
 
 TEST_CASE("Test transform", "[partitioned_future]")

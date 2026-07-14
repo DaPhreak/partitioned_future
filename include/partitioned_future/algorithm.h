@@ -302,10 +302,9 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
         return init;
     }
     T* initP{ &init };
-    const size_t sizeMid{ ( size / 2) + ( size % 2 ) };
     const std::false_type dummy{};
 
-    auto futures{ make_futures( &dummy, sizeMid,
+    auto futures{ make_futures( &dummy, ( size / 2 ) + ( size % 2 ),
         [&]( auto&&, const size_t offset, const size_t chunkSize )
         {
             const auto reduce{[&]( const size_t chunkId )
@@ -330,9 +329,8 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
         taskCount
     ) };
     const size_t futuresSize{ futures.size() };
-    const size_t futuresMid{ ( futuresSize / 2) + ( futuresSize % 2 ) };
 
-    auto v{ transform( &dummy, &dummy + futuresMid,
+    auto v{ transform( &dummy, &dummy + ( futuresSize / 2 ) + ( futuresSize % 2 ),
         [&]( const auto& curr )
         {
             const auto id{ 2 * std::distance( &dummy, &curr ) };
@@ -350,9 +348,9 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
 
     for ( size_t n{ v.size() }; n > 1; ) {
         const size_t mid{ n / 2 };
-        const size_t mod{ n % 2 };
+        const size_t rest{ n % 2 };
 
-        for_each( &dummy, &dummy + mid + ( initP ? mod :0 ),
+        for_each( &dummy, &dummy + mid + ( initP ? rest :0 ),
             [&]( const auto& curr )
             {
                 if ( const auto id{ std::distance( &dummy, &curr ) }; id < mid ) {
@@ -363,7 +361,7 @@ template < class It1, class It2, class T, class BinOp1, class BinOp2>
             },
             taskCount
         );
-        n = mid + mod;
+        n = mid + rest;
     }
 
     if ( initP ) {

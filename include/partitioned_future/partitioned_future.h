@@ -49,7 +49,7 @@ template < class It, class Function >
     using Result       = std::vector<std::future<FutureResult>>;
     Result res;
 
-    if ( const size_t taskNr{ std::min( std::max( taskCount, size_t{1} ), size ) } ) {
+    if ( const size_t taskNr{ std::min( std::max( taskCount, size_t{ 1 } ), size ) } ) {
         const size_t chunkFloor{ size / taskNr };
         const size_t restId{ taskNr - ( size % taskNr ) };
 
@@ -61,8 +61,8 @@ template < class It, class Function >
                 std::launch::deferred | ( i ? std::launch::async : std::launch::deferred ),
                 [ it, function, offset, chunkSize ]() mutable
                 {
-                    if constexpr ( constexpr auto signature{ function_signature_v<It,Function> }; signature == 2 ) {
-                        return __invoke_it( std::move( it ) , std::move( function ), offset, chunkSize );
+                    if constexpr ( function_signature_v<It,Function> == 2 ) {
+                        return __invoke_it( std::move( it ), std::move( function ), offset, chunkSize );
                     } else {
                         if constexpr ( !std::is_void_v<FutureResult> ) {
                             FutureResult res;
