@@ -476,7 +476,9 @@ TEST_CASE("Test reduce", "[partitioned_future]")
         ) };
 
         REQUIRE ( a.size() == ( hello.size() * strings.size() ) + hello.size() );
-        REQUIRE ( a.substr( 0, hello.size() ) == hello );
+        for ( std::string_view v{ a }; ! v.empty(); v.remove_prefix( hello.size() ) ) {
+            REQUIRE ( ( v.substr( 0, hello.size() ) == hello ) );
+        }
     }
     {
         const std::string hello{ "Hello!" };
@@ -491,7 +493,9 @@ TEST_CASE("Test reduce", "[partitioned_future]")
             ) };
 
             REQUIRE ( a.size() == ( hello.size() * i ) + hello.size() );
-            REQUIRE ( a.substr( 0, hello.size() ) == hello );
+            for ( std::string_view v{ a }; ! v.empty(); v.remove_prefix( hello.size() ) ) {
+                REQUIRE ( ( v.substr( 0, hello.size() ) == hello ) );
+            }
         }
     }
 
