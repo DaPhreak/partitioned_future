@@ -560,7 +560,29 @@ TEST_CASE("Test make_futures", "[partitioned_future]")
             stringVector2.emplace_back( std::move( string ) );
         }
     }
-    
+
+    futures = partitioned_future::make_futures(
+        stringVector1.begin(),
+        stringVector1.end(),
+        []( auto&& it, const size_t offset, const size_t chunkSize )
+        {
+            std::vector<std::string> res{};
+
+            res.reserve( chunkSize );
+            for ( size_t i{}; i < chunkSize; ++i, ++it ) {
+                res.emplace_back( *it );
+            }
+            return res;
+        }
+    );
+    stringVector2.clear();
+
+    for ( auto&& future: futures ) {
+        for ( auto&& string: future.get() ) {
+            stringVector2.emplace_back( std::move( string ) );
+        }
+    }
+
     REQUIRE( stringVector1 == stringVector2 );
 }
 

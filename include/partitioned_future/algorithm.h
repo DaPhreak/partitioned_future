@@ -135,7 +135,7 @@ template < class It, class Pred >
     auto&& futures{ make_futures(
         it,
         size,
-        [ & ]( const size_t id, const It& it )
+        [ & ]( const It& it, const size_t id )
         {
             if ( std::shared_lock l{ mutex }; result < id ) {
                 return;
@@ -224,7 +224,7 @@ OutputIt transform( It it, It end, OutputIt dest, Function&& function, const siz
         auto&& futures{ make_futures(
             std::move( it ),
             size,
-            [ &function, dest = std::move( dest ) ]( const size_t id, const It& it )
+            [ &function, dest = std::move( dest ) ]( const It& it, const size_t id )
             {
                 *std::next( dest, id ) = function( *it );
             },
@@ -248,7 +248,7 @@ OutputIt transform( It it, It end, It2 it2, OutputIt dest, Function&& function, 
         auto&& futures{ make_futures(
             std::move( it ),
             size,
-            [ &function, it2 = std::move( it2 ), dest = std::move( dest ) ]( const size_t id, const It& it )
+            [ &function, it2 = std::move( it2 ), dest = std::move( dest ) ]( const It& it, const size_t id )
             {
                 *std::next( dest, id ) = function( *it, *std::next( it2, id ) );
             },
@@ -275,7 +275,7 @@ template < class It, class Function >
         auto&& futures{ make_futures(
             std::move( it ),
             size,
-            [ &function, dest = result.begin() ]( const size_t id, const It& it )
+            [ &function, dest = result.begin() ]( const It& it, const size_t id )
             {
                 *std::next( dest, id ) = function( *it );
             },
